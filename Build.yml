@@ -1,0 +1,50 @@
+name: Build CIA
+
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    container: devkitpro/devkitarm
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install 3DS libraries and host tools
+        run: |
+          dkp-pacman -S --noconfirm 3ds-dev
+          apt-get update
+          apt-get install -y git build-essential cmake zip unzip
+
+      - name: Unzip project
+        run: unzip -o vision3ds.zip
+
+      - name: Build makerom
+        run: |
+          git clone --depth 1 https://github.com/3DSGuy/Project_CTR.git /tmp/ctr
+          cd /tmp/ctr/makerom
+          make deps
+          make
+          cp bin/makerom /usr/local/bin/makerom
+
+      - name: Build bannertool
+        run: |
+          git clone --depth 1 --recursive https://github.com/Steveice10/bannertool.git /tmp/bt
+          cd /tmp/bt
+          make
+          cp "$(find output -type f -name bannertool | head -n 1)" /usr/local/bin/bannertool
+
+      - name: Build 3DSX and CIA
+        working-directory: vision3ds
+        run: |
+          make
+          make cia
+
+      - name: Upload build
+        uses: actions/upload-artifact@v4
+        with:
+          name: vision3ds
+          path: |
+            vision3ds/vision3ds.cia
+            vision3ds/vision3ds.3dsx
